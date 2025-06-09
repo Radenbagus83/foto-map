@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Pengolah Foto</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #0056b3;
+            text-align: center;
+        }
+        .menu-section, .input-section, .output-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="file"], input[type="text"], input[type="date"], input[type="time"], select, button {
+            width: calc(100% - 22px); /* Menyesuaikan dengan padding */
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Memastikan padding dan border termasuk dalam lebar/tinggi elemen */
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .button-group button {
+            flex: 1;
+            width: auto; /* Mengesampingkan lebar spesifik untuk tombol grup */
+        }
+        #imageContainer {
+            margin-top: 20px;
+            text-align: center;
+            border: 1px dashed #ccc;
+            padding: 10px;
+            min-height: 150px; /* Area visual */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            position: relative; /* Untuk posisi overlay */
+            overflow: hidden; /* Memastikan overlay tidak keluar batas */
+        }
+        #outputCanvas {
+            max-width: 100%;
+            height: auto;
+            display: none; /* Tersembunyi secara default sampai foto diproses */
+        }
+        #downloadBtn {
+            display: none; /* Tersembunyi secara default */
+            margin-top: 20px;
+            background-color: #28a745;
+        }
+        #downloadBtn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Aplikasi Pengolah Foto</h1>
+
+        <div class="menu-section">
+            <h2>1. Upload Foto</h2>
+            <div class="button-group">
+                <input type="file" id="uploadGallery" accept="image/*" style="display: none;">
+                <button onclick="document.getElementById('uploadGallery').click()">Upload Foto dari Galeri</button>
+                <input type="file" id="openCamera" accept="image/*" capture="camera" style="display: none;">
+                <button onclick="document.getElementById('openCamera').click()">Buka Foto Kamera HP</button>
+            </div>
+            <p id="imageStatus"></p>
+        </div>
+
+        <div class="input-section">
+            <h2>3. Menu Inputan</h2>
+            <label for="namaJalan">Nama Jalan:</label>
+            <input type="text" id="namaJalan" placeholder="Masukkan Nama Jalan">
+
+            <label for="namaDusun">Nama Dusun:</label>
+            <input type="text" id="namaDusun" placeholder="Masukkan Nama Dusun">
+
+            <label for="namaDesa">Nama Desa:</label>
+            <input type="text" id="namaDesa" placeholder="Masukkan Nama Desa">
+
+            <label for="namaKecamatan">Nama Kecamatan:</label>
+            <input type="text" id="namaKecamatan" placeholder="Masukkan Nama Kecamatan">
+
+            <label for="namaKabupaten">Nama Kabupaten:</label>
+            <input type="text" id="namaKabupaten" value="Jombang">
+
+            <label for="tanggal">Tanggal:</label>
+            <input type="date" id="tanggal">
+
+            <label for="jam">Jam:</label>
+            <input type="time" id="jam">
+        </div>
+
+        <div class="menu-section">
+            <h2>4. Ubah Ukuran Gambar &amp; Stempel</h2>
+            <label for="imageRatio">Pilih Rasio Gambar:</label>
+            <select id="imageRatio">
+                <option value="">Pilih Rasio</option>
+                <option value="4:3">4:3 (1200px X 900px)</option>
+                <option value="3:4">3:4 (900px X 1200px)</option>
+            </select>
+            <button id="processImageBtn">Proses Gambar</button>
+        </div>
+
+        <div class="output-section">
+            <h2>8. Tampilan Hasil</h2>
+            <div id="imageContainer">
+                <canvas id="outputCanvas"></canvas>
+                <p id="noImageText">Foto akan ditampilkan di sini</p>
+            </div>
+            <button id="downloadBtn">Download Foto</button>
+        </div>
+    </div>
+
+    <script>
+        const uploadGallery = document.getElementById('uploadGallery');
+        const openCamera = document.getElementById('openCamera');
+        const imageStatus = document.getElementById('imageStatus');
+        const processImageBtn = document.getElementById('processImageBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const ctx = outputCanvas.getContext('2d');
+        const noImageText = document.getElementById('noImageText');
+
+        let originalImage = null; // Untuk menyimpan data gambar yang diunggah
+
+        // Setel tanggal dan jam default
+        window.onload = () => {
+            const today = new Date();
+            const dateInput = document.getElementById('tanggal');
+            dateInput.value = today.toISOString().split('T')[0];
+
+            const timeInput = document.getElementById('jam');
+            timeInput.value = today.toTimeString().split(' ')[0].substring(0, 5); // Format HH:MM
+        };
+
+        uploadGallery.addEventListener('change', (event) => {
+            handleImageUpload(event.target.files[0]);
+        });
+
+        openCamera.addEventListener('change', (event) => {
+            handleImageUpload(event.target.files[0]);
+        });
+
+        function handleImageUpload(file) {
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        originalImage = img;
+                        imageStatus.textContent = `Foto berhasil diunggah: ${file.name}`;
+                        noImageText.style.display = 'none';
+                        outputCanvas.style.display = 'none'; // Sembunyikan kanvas sampai diproses
+                        downloadBtn.style.display = 'none'; // Sembunyikan tombol unduh
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imageStatus.textContent = 'Tidak ada foto yang diunggah.';
+                originalImage = null;
+                noImageText.style.display = 'block';
+                outputCanvas.style.display = 'none';
+                downloadBtn.style.display = 'none';
+            }
+        }
+
+        processImageBtn.addEventListener('click', async () => {
+            if (!originalImage) {
+                alert('Silakan unggah foto terlebih dahulu!');
+                return;
+            }
+
+            const imageRatio = document.getElementById('imageRatio').value;
+            if (!imageRatio) {
+                alert('Silakan pilih rasio gambar terlebih dahulu!');
+                return;
+            }
+
+            let targetWidth, targetHeight;
+            if (imageRatio === '4:3') {
+                targetWidth = 1200;
+                targetHeight = 900;
+            } else if (imageRatio === '3:4') {
+                targetWidth = 900;
+                targetHeight = 1200;
+            }
+
+            outputCanvas.width = targetWidth;
+            outputCanvas.height = targetHeight;
+
+            ctx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            ctx.drawImage(originalImage, 0, 0, targetWidth, targetHeight);
+
+            const stampFileName = imageRatio === '4:3' ? '43.png' : '34.png';
+            const stampImage = new Image();
+            stampImage.src = stampFileName;
+
+            stampImage.onload = () => {
+                const stampAspectRatio = stampImage.width / stampImage.height;
+                let stampDrawWidth = targetWidth;
+                let stampDrawHeight = targetWidth / stampAspectRatio;
+
+                if (stampDrawHeight > targetHeight / 2) {
+                    stampDrawHeight = targetHeight / 2;
+                    stampDrawWidth = stampDrawHeight * stampAspectRatio;
+                }
+                const stampX = (targetWidth - stampDrawWidth) / 2;
+                const stampY = 0;
+
+                ctx.drawImage(stampImage, stampX, stampY, stampDrawWidth, stampDrawHeight);
+
+                const namaJalan = document.getElementById('namaJalan').value;
+                const namaDusun = document.getElementById('namaDusun').value;
+                const namaDesa = document.getElementById('namaDesa').value;
+                const namaKecamatan = document.getElementById('namaKecamatan').value;
+                const namaKabupaten = document.getElementById('namaKabupaten').value;
+                const tanggal = document.getElementById('tanggal').value;
+                const jam = document.getElementById('jam').value;
+
+                const textLine1 = `${namaJalan}, ${namaDusun}, ${namaDesa}.`;
+                const textLine2 = `${namaKecamatan}, ${namaKabupaten}`;
+                const textLine3 = `${tanggal}, ${jam}`;
+
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.font = '24px Arial';
+
+                const textYOffset = stampY + (stampDrawHeight * 0.5);
+                const lineHeight = 30;
+
+                ctx.fillText(textLine1, targetWidth / 2, textYOffset - lineHeight);
+                ctx.fillText(textLine2, targetWidth / 2, textYOffset);
+                ctx.fillText(textLine3, targetWidth / 2, textYOffset + lineHeight);
+
+                // Tampilkan kanvas dan tombol unduh setelah semua gambar dan teks digambar
+                outputCanvas.style.display = 'block';
+                downloadBtn.style.display = 'block';
+            };
+
+            stampImage.onerror = () => {
+                alert('Gagal memuat file stempel. Pastikan 43.png dan 34.png ada di direktori yang sama.');
+                console.error(`Gagal memuat gambar stempel: ${stampFileName}`);
+                // Penting: Jika stempel gagal, sembunyikan kanvas dan tombol unduh agar tidak mengunduh gambar kosong
+                outputCanvas.style.display = 'none';
+                downloadBtn.style.display = 'none';
+                noImageText.style.display = 'block';
+            };
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const dataURL = outputCanvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = 'foto_diproses.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+    </script>
+
+</body>
+</html>
